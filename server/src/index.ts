@@ -24,6 +24,7 @@ fastify.register(fastifyCookie, {
     secure: true,
     signed: true,
     domain: env.FRONTEND_DOMAIN,
+    path: "/",
   },
 });
 

@@ -1,18 +1,21 @@
 import type { FastifyReply } from "fastify";
 
-import crypto from "node:crypto";
-
 import { eq } from "drizzle-orm";
 import jwt from "jsonwebtoken";
+import crypto from "node:crypto";
 import postgres from "postgres";
 
 import { ACCESS_TOKEN_EXPIRY, REFRESH_TOKEN_EXPIRY } from "@/configs/constants";
 import { env } from "@/configs/env";
 import { db } from "@/drizzle/db";
 import { emailsTable, sessionsTable, usersTable } from "@/drizzle/schema";
+import VerifyEmailLink from "@/emails/verify-email-link";
 import { HTTPError } from "@/errors/http-error";
+import { UnauthorizedError } from "@/errors/unauthorized-error";
+import { logger } from "@/libs/pino";
+import { sendEmail } from "@/libs/send-email";
 
-import { refreshTokenDTO } from "./auth.dtos";
+import { accessTokenDTO, refreshTokenDTO } from "./auth.dtos";
 
 const { PostgresError } = postgres;
 
@@ -139,4 +142,108 @@ export async function logoutUser(
     .where(eq(sessionsTable.id, validatedRefreshToken.sessionId));
   reply.clearCookie("refreshToken");
   reply.clearCookie("accessToken");
+}
+
+export function sendVerifyEmailLink(email: string, userId: number) {
+  const emailLink = createVerifyEmailLink(email, userId);
+  sendEmail({
+    from: "Auth Sample <binamralamsal@resend.dev>",
+    to: [email],
+    subject: "Verify your Email",
+    react: VerifyEmailLink({ url: emailLink }),
+  })
+    .then(({ data, error }) => {
+      if (data) return null;
+      if (error) throw new Error(error.message);
+    })
+    .catch(logger.error);
+}
+
+export function createVerifyEmailToken(email: string, userId: number) {
+  const authString = `${env.JWT_SECRET}:${email}:${userId}`;
+  return crypto.createHash("sha256").update(authString).digest("hex");
+}
+
+export function createVerifyEmailLink(email: string, userId: number) {
+  const emailToken = createVerifyEmailToken(email, userId);
+  const uriEncodedEmail = encodeURIComponent(email);
+
+  return `https://${env.FRONTEND_DOMAIN}/verify?token=${emailToken}&email=${uriEncodedEmail}`;
+}
+
+export async function validateVerifyEmail({
+  email,
+  userId,
+  token,
+}: {
+  token: string;
+  email: string;
+  userId: number;
+}) {
+  const emailToken = createVerifyEmailToken(email, userId);
+  const isValid = emailToken === token;
+
+  if (!isValid) throw new HTTPError("Your verification link is invalid!", 400);
+
+  await db
+    .update(emailsTable)
+    .set({ isVerified: true })
+    .where(eq(emailsTable.userId, userId));
+}
+
+export function getUserFromAccessToken(accessToken: string) {
+  try {
+    const decodedAccessToken = jwt.verify(accessToken, env.JWT_SECRET);
+    const validatedAccessToken = accessTokenDTO.parse(decodedAccessToken);
+
+    return validatedAccessToken;
+  } catch {
+    throw new UnauthorizedError();
+  }
+}
+
+export function findUserById(userId: number) {
+  return db.query.usersTable.findFirst({
+    where: eq(usersTable.id, userId),
+  });
+}
+
+export function findSessionById(sessionId: number) {
+  return db.query.sessionsTable.findFirst({
+    where: eq(sessionsTable.id, sessionId),
+  });
+}
+
+export async function refreshTokens({
+  refreshToken,
+  reply,
+}: {
+  refreshToken: string;
+  reply: FastifyReply;
+}) {
+  try {
+    const decodedRefreshToken = jwt.verify(refreshToken, env.JWT_SECRET);
+
+    const validatedRefreshToken = refreshTokenDTO.parse(decodedRefreshToken);
+    const currentSession = await findSessionById(
+      validatedRefreshToken.sessionId,
+    );
+
+    if (!currentSession?.valid) throw new UnauthorizedError();
+
+    const user = await findUserById(currentSession.userId);
+    if (!user) throw new UnauthorizedError();
+
+    logUserIn(
+      {
+        sessionId: currentSession.id,
+        userId: user.id,
+      },
+      reply,
+    );
+
+    return { userId: user.id, sessionId: currentSession.id };
+  } catch {
+    throw new UnauthorizedError();
+  }
 }

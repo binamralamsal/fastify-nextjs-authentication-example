@@ -18,3 +18,8 @@ export const refreshTokenDTO = z.object({
 export const accessTokenDTO = refreshTokenDTO.extend({
   userId: z.number(),
 });
+
+export const verifyUserDTO = z.object({
+  email: z.string().trim().email({ message: "Invalid email address" }),
+  token: z.string().min(1, { message: "Token is required" }),
+});

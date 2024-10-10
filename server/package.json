@@ -13,6 +13,7 @@
     "@eslint/js": "^9.12.0",
     "@types/bun": "latest",
     "@types/jsonwebtoken": "^9.0.7",
+    "@types/react": "^18.3.11",
     "drizzle-kit": "^0.25.0",
     "eslint": "^9.12.0",
     "eslint-plugin-import": "^2.31.0",
@@ -27,10 +28,13 @@
   "dependencies": {
     "@fastify/cookie": "^11.0.1",
     "@fastify/cors": "^10.0.1",
+    "@react-email/components": "^0.0.25",
     "drizzle-orm": "^0.34.1",
     "fastify": "^5.0.0",
     "jsonwebtoken": "^9.0.2",
     "postgres": "^3.4.4",
+    "react": "^18.3.1",
+    "resend": "^4.0.0",
     "zod": "^3.23.8"
   }
 }
