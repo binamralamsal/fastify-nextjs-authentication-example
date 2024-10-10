@@ -19,18 +19,26 @@ export function parseCookies(cookieString: string): ParsedCookies {
     const [nameValue, ...attributes] = cookie.split("; ");
     const [name, value] = nameValue.split("=");
 
+    const decodedName = decodeURIComponent(name);
+    const decodedValue = decodeURIComponent(value);
+
     const cookieAttributes = attributes.reduce(
       (attrAcc: CookieAttributes, attr) => {
         const [key, attrValue] = attr.split("=");
-        switch (key.toLowerCase()) {
+        const decodedKey = decodeURIComponent(key.toLowerCase());
+        const decodedAttrValue = attrValue
+          ? decodeURIComponent(attrValue)
+          : undefined;
+
+        switch (decodedKey) {
           case "max-age":
-            attrAcc.maxAge = Number(attrValue);
+            attrAcc.maxAge = Number(decodedAttrValue);
             break;
           case "domain":
-            attrAcc.domain = attrValue;
+            attrAcc.domain = decodedAttrValue;
             break;
           case "path":
-            attrAcc.path = attrValue;
+            attrAcc.path = decodedAttrValue;
             break;
           case "httponly":
             attrAcc.httpOnly = true;
@@ -39,7 +47,7 @@ export function parseCookies(cookieString: string): ParsedCookies {
             attrAcc.secure = true;
             break;
           case "samesite":
-            attrAcc.sameSite = attrValue as "lax" | "strict" | "none";
+            attrAcc.sameSite = decodedAttrValue as "lax" | "strict" | "none";
             break;
         }
         return attrAcc;
@@ -47,7 +55,7 @@ export function parseCookies(cookieString: string): ParsedCookies {
       {},
     );
 
-    acc[name] = { value, attributes: cookieAttributes };
+    acc[decodedName] = { value: decodedValue, attributes: cookieAttributes };
     return acc;
   }, {});
 }

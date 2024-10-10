@@ -1,8 +1,4 @@
-import type {
-  FastifyReply,
-  FastifyRequest,
-  HookHandlerDoneFunction,
-} from "fastify";
+import type { FastifyReply, FastifyRequest } from "fastify";
 
 import { UnauthorizedError } from "@/errors/unauthorized-error";
 import {
@@ -13,7 +9,6 @@ import {
 export async function authMiddleware(
   request: FastifyRequest,
   reply: FastifyReply,
-  done: HookHandlerDoneFunction,
 ) {
   const { accessToken, refreshToken } = request.cookies;
 
@@ -26,9 +21,8 @@ export async function authMiddleware(
     if (accessToken) {
       const { valid, value } = request.unsignCookie(accessToken);
       if (!valid || !value) return handleInvalidToken(accessToken, "access");
-
       request.user = getUserFromAccessToken(value);
-      return done();
+      return;
     }
 
     if (!refreshToken) throw new UnauthorizedError();
@@ -37,7 +31,7 @@ export async function authMiddleware(
     if (!valid || !value) return handleInvalidToken(refreshToken, "refresh");
 
     request.user = await refreshTokens({ refreshToken: value, reply });
-    done();
+    return;
   } catch {
     throw new UnauthorizedError();
   }

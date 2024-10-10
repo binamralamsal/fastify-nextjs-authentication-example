@@ -97,7 +97,7 @@ export function logUserIn(
     { sessionId, exp: now + REFRESH_TOKEN_EXPIRY },
     env.JWT_SECRET,
   );
-
+  console.log({ accessToken, refreshToken });
   reply.setCookie("accessToken", accessToken, { maxAge: ACCESS_TOKEN_EXPIRY });
   reply.setCookie("refreshToken", refreshToken, {
     maxAge: REFRESH_TOKEN_EXPIRY,

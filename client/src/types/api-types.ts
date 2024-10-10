@@ -35,4 +35,29 @@ export type API = {
       error: ErrorResponse;
     };
   };
+
+  "/api/auth/logout": {
+    post: {
+      success: SuccessResponse;
+      error: ErrorResponse;
+    };
+  };
+
+  "/api/auth/me": {
+    get: {
+      success: SuccessResponse;
+      error: ErrorResponse;
+    };
+  };
+
+  "/api/auth/verify": {
+    post: {
+      success: SuccessResponse;
+      error: ErrorResponse;
+      body: {
+        email: string;
+        token: string;
+      };
+    };
+  };
 };

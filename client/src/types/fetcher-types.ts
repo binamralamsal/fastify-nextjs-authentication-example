@@ -4,6 +4,7 @@ export type Options = {
   method?: "GET" | "POST" | "PUT" | "DELETE" | "PATCH" | (string & {});
   credentials?: "omit" | "same-origin" | "include";
   baseUrl?: string;
+  signal?: AbortSignal;
 };
 
 export type Prettify<T> = {

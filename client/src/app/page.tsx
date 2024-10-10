@@ -70,25 +70,25 @@ export default function HomePage() {
   //   }
   // }
 
-  // async function handleLogout() {
-  //   const { data, error } = await api.auth.logout.post();
+  async function handleLogout() {
+    const response = await api.post("/api/auth/logout").json();
 
-  //   if (error) {
-  //     toast.error(error.message);
-  //   } else {
-  //     toast.success(data);
-  //   }
-  // }
+    if (response.ok) {
+      toast.success(response.data.message);
+    } else {
+      toast.error(response.data.message);
+    }
+  }
 
-  // async function handleGetMe() {
-  //   const { data, error } = await api.auth.me.get();
+  async function handleGetMe() {
+    const response = await api.get("/api/auth/me").json();
 
-  //   if (error) {
-  //     toast.error(error.message);
-  //   } else {
-  //     toast.success(data);
-  //   }
-  // }
+    if (response.ok) {
+      toast.success(response.data.message);
+    } else {
+      toast.error(response.data.message);
+    }
+  }
 
   // async function handleForgotPassword() {
   //   const { data, error } = await api.auth.logout.post();
@@ -234,7 +234,7 @@ export default function HomePage() {
         <Button className="w-full" size="lg" type="submit">
           Send Reset Password Email
         </Button>
-      </form>
+      </form> */}
 
       <div className="w-full max-w-md space-y-3">
         <Button
@@ -255,7 +255,7 @@ export default function HomePage() {
         >
           Get Me
         </Button>
-      </div> */}
+      </div>
     </div>
   );
 }

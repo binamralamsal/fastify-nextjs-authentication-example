@@ -63,6 +63,7 @@ export class APIFetcher<TRoutes extends APISchema> {
       method,
       headers,
       credentials,
+      signal: opts.signal,
       body: requestBody,
     });
     const data =
