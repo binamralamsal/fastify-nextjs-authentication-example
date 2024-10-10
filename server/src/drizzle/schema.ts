@@ -44,7 +44,10 @@ export const emailsTable = pgTable(
 
 export const sessionsTable = pgTable("sessions", {
   id: serial("id").primaryKey(),
-  sessionToken: text("session_token").notNull(),
+  sessionToken: text("session_token")
+    .notNull()
+    .default(sql`gen_random_uuid()`)
+    .unique(),
   userId: integer("user_id")
     .notNull()
     .references(() => usersTable.id, { onDelete: "cascade" }),

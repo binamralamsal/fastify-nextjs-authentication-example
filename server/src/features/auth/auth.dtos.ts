@@ -12,7 +12,7 @@ export const registerUserDTO = authorizeUserDTO.extend({
 });
 
 export const refreshTokenDTO = z.object({
-  sessionId: z.number(),
+  sessionToken: z.string(),
 });
 
 export const accessTokenDTO = refreshTokenDTO.extend({

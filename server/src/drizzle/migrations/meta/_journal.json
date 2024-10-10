@@ -8,6 +8,13 @@
       "when": 1728487900084,
       "tag": "0000_regular_ink",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1728584192233,
+      "tag": "0001_odd_stone_men",
+      "breakpoints": true
     }
   ]
 }

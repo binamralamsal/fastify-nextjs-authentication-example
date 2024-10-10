@@ -32,13 +32,13 @@ export async function registerUserController(
 ) {
   const body = registerUserDTO.parse(request.body);
   const { userId } = await registerUser(body);
-  const { id: sessionId } = await createSession(userId, {
+  const { sessionToken } = await createSession(userId, {
     ip: request.ip,
     userAgent: request.headers["user-agent"] || "",
   });
 
   sendVerifyEmailLink(body.email, userId);
-  logUserIn({ sessionId, userId }, reply);
+  logUserIn({ sessionToken, userId }, reply);
 
   return reply.status(201).send({
     status: STATUS.SUCCESS,
@@ -53,12 +53,12 @@ export async function authorizeUserController(
 ) {
   const body = authorizeUserDTO.parse(request.body);
   const userId = await authorizeUser(body);
-  const { id: sessionId } = await createSession(userId, {
+  const { sessionToken } = await createSession(userId, {
     ip: request.ip,
     userAgent: request.headers["user-agent"] || "",
   });
 
-  logUserIn({ sessionId, userId }, reply);
+  logUserIn({ sessionToken, userId }, reply);
 
   return reply.status(200).send({
     status: STATUS.SUCCESS,
@@ -87,7 +87,8 @@ export async function logoutUserController(
       status: STATUS.SUCCESS,
       message: "Logged Out Successfully",
     });
-  } catch {
+  } catch (err) {
+    console.log(err);
     throw new UnauthorizedError();
   }
 }
@@ -124,7 +125,7 @@ export async function changePasswordController(
     throw new HTTPError("New password can't be the same as old password", 400);
 
   if (!request.user) throw new UnauthorizedError();
-  const { sessionId, userId } = request.user;
+  const { sessionToken, userId } = request.user;
 
   const currentUser = await findUserById(userId);
   if (!currentUser) throw new UnauthorizedError();
@@ -132,7 +133,7 @@ export async function changePasswordController(
   if (!(await verifyPassword(oldPassword, currentUser.password)))
     throw new HTTPError("Old password is incorrect", 401);
 
-  await changePassword(userId, newPassword, sessionId);
+  await changePassword(userId, newPassword, sessionToken);
 
   return reply.status(200).send({
     status: STATUS.SUCCESS,

@@ -32,7 +32,8 @@ export async function authMiddleware(
 
     request.user = await refreshTokens({ refreshToken: value, reply });
     return;
-  } catch {
+  } catch (err) {
+    console.log(err);
     throw new UnauthorizedError();
   }
 }

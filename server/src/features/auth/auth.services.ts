@@ -64,13 +64,10 @@ export async function createSession(
   userId: number,
   connection: { ip: string; userAgent: string },
 ) {
-  const sessionToken = crypto.randomBytes(45).toString("hex");
-
   return (
     await db
       .insert(sessionsTable)
       .values({
-        sessionToken,
         userId,
         userAgent: connection.userAgent,
         ip: connection.ip,
@@ -80,21 +77,21 @@ export async function createSession(
 }
 
 export function logUserIn(
-  { sessionId, userId }: { sessionId: number; userId: number },
+  { sessionToken, userId }: { sessionToken: string; userId: number },
   reply: FastifyReply,
 ) {
   const now = Math.floor(Date.now() / 1000);
 
   const accessToken = jwt.sign(
     {
-      sessionId,
+      sessionToken,
       userId,
       exp: now + ACCESS_TOKEN_EXPIRY,
     },
     env.JWT_SECRET,
   );
   const refreshToken = jwt.sign(
-    { sessionId, exp: now + REFRESH_TOKEN_EXPIRY },
+    { sessionToken, exp: now + REFRESH_TOKEN_EXPIRY },
     env.JWT_SECRET,
   );
   console.log({ accessToken, refreshToken });
@@ -139,7 +136,7 @@ export async function logoutUser(
 
   await db
     .delete(sessionsTable)
-    .where(eq(sessionsTable.id, validatedRefreshToken.sessionId));
+    .where(eq(sessionsTable.sessionToken, validatedRefreshToken.sessionToken));
   reply.clearCookie("refreshToken");
   reply.clearCookie("accessToken");
 }
@@ -208,9 +205,9 @@ export function findUserById(userId: number) {
   });
 }
 
-export function findSessionById(sessionId: number) {
+export function findSessionById(sessionToken: string) {
   return db.query.sessionsTable.findFirst({
-    where: eq(sessionsTable.id, sessionId),
+    where: eq(sessionsTable.sessionToken, sessionToken),
   });
 }
 
@@ -226,7 +223,7 @@ export async function refreshTokens({
 
     const validatedRefreshToken = refreshTokenDTO.parse(decodedRefreshToken);
     const currentSession = await findSessionById(
-      validatedRefreshToken.sessionId,
+      validatedRefreshToken.sessionToken,
     );
 
     if (!currentSession?.valid) throw new UnauthorizedError();
@@ -236,13 +233,13 @@ export async function refreshTokens({
 
     logUserIn(
       {
-        sessionId: currentSession.id,
+        sessionToken: currentSession.sessionToken,
         userId: user.id,
       },
       reply,
     );
 
-    return { userId: user.id, sessionId: currentSession.id };
+    return { userId: user.id, sessionToken: currentSession.sessionToken };
   } catch {
     throw new UnauthorizedError();
   }
@@ -251,7 +248,7 @@ export async function refreshTokens({
 export async function changePassword(
   userId: number,
   newPassword: string,
-  sessionId: number,
+  sessionToken: string,
 ) {
   const hashedPassword = await hashPassword(newPassword);
 
@@ -265,6 +262,9 @@ export async function changePassword(
   await db
     .delete(sessionsTable)
     .where(
-      and(ne(sessionsTable.id, sessionId), eq(sessionsTable.userId, userId)),
+      and(
+        ne(sessionsTable.sessionToken, sessionToken),
+        eq(sessionsTable.userId, userId),
+      ),
     );
 }

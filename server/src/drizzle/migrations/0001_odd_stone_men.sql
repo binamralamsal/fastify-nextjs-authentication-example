@@ -1,0 +1,2 @@
+ALTER TABLE "sessions" ALTER COLUMN "session_token" SET DEFAULT gen_random_uuid();--> statement-breakpoint
+ALTER TABLE "sessions" ADD CONSTRAINT "sessions_session_token_unique" UNIQUE("session_token");
