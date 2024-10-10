@@ -1,0 +1,7 @@
+{
+  "rest-client.environmentVariables": {
+    "$shared": {
+      "hostname": "https://api.binamralamsal.com"
+    }
+  }
+}

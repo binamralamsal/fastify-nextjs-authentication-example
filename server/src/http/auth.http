@@ -1,0 +1,33 @@
+GET {{hostname}}/api/auth
+
+
+###
+
+
+POST {{hostname}}/api/auth/register
+Content-Type: application/json
+
+{
+ "email": "binamralamsal@gmail.com",
+ "password": "binamra1234",
+ "name": "Binamra Lamsal"
+}
+
+
+###
+
+
+POST {{hostname}}/api/auth/authorize
+Content-Type: application/json
+
+{
+ "email": "binamralamsal@gmail.com",
+ "password": "binamra1234"
+}
+
+
+###
+
+
+POST {{hostname}}/api/auth/logout
+Cookie: asdf
