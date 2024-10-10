@@ -60,4 +60,15 @@ export type API = {
       };
     };
   };
+
+  "/api/auth/change-password": {
+    post: {
+      success: SuccessResponse;
+      error: ErrorResponse;
+      body: {
+        oldPassword: string;
+        newPassword: string;
+      };
+    };
+  };
 };

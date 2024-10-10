@@ -20,4 +20,10 @@ export async function authRoutes(fastify: FastifyInstance) {
     { preHandler: authMiddleware },
     authControllers.getMeController,
   );
+
+  fastify.post(
+    "/change-password",
+    { preHandler: authMiddleware },
+    authControllers.changePasswordController,
+  );
 }

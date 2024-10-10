@@ -15,8 +15,8 @@ export default function HomePage() {
   const [registerName, setRegisterName] = useState("");
   const [registerEmail, setRegisterEmail] = useState("");
   const [registerPassword, setRegisterPassword] = useState("");
-  // const [changeOldPassword, setChangeOldPassword] = useState("");
-  // const [changeNewPassword, setChangeNewPassword] = useState("");
+  const [changeOldPassword, setChangeOldPassword] = useState("");
+  const [changeNewPassword, setChangeNewPassword] = useState("");
   // const [forgotPasswordEmail, setForgotPasswordEmail] = useState("");
 
   async function handleLogin(e: FormEvent<HTMLFormElement>) {
@@ -55,20 +55,24 @@ export default function HomePage() {
     }
   }
 
-  // async function handleChangePassword(e: FormEvent<HTMLFormElement>) {
-  //   e.preventDefault();
+  async function handleChangePassword(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
 
-  //   const { data, error } = await api.auth["change-password"].post({
-  //     oldPassword: changeOldPassword,
-  //     newPassword: changeNewPassword,
-  //   });
+    const response = await api
+      .post("/api/auth/change-password", {
+        body: {
+          newPassword: changeNewPassword,
+          oldPassword: changeOldPassword,
+        },
+      })
+      .json();
 
-  //   if (error) {
-  //     toast.error(error.message);
-  //   } else {
-  //     toast.success(data);
-  //   }
-  // }
+    if (!response.ok) {
+      toast.error(response.data.message);
+    } else {
+      toast.success(response.data.message);
+    }
+  }
 
   async function handleLogout() {
     const response = await api.post("/api/auth/logout").json();
@@ -183,7 +187,7 @@ export default function HomePage() {
         </Button>
       </form>
 
-      {/* <form
+      <form
         className="w-full max-w-md rounded bg-white p-6 shadow-md"
         onSubmit={handleChangePassword}
       >
@@ -215,7 +219,7 @@ export default function HomePage() {
         </Button>
       </form>
 
-      <form
+      {/* <form
         className="w-full max-w-md rounded bg-white p-6 shadow-md"
         onSubmit={handleForgotPassword}
       >

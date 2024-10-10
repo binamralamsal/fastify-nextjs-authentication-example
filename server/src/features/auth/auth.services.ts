@@ -1,6 +1,6 @@
 import type { FastifyReply } from "fastify";
 
-import { eq } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 import jwt from "jsonwebtoken";
 import crypto from "node:crypto";
 import postgres from "postgres";
@@ -246,4 +246,25 @@ export async function refreshTokens({
   } catch {
     throw new UnauthorizedError();
   }
+}
+
+export async function changePassword(
+  userId: number,
+  newPassword: string,
+  sessionId: number,
+) {
+  const hashedPassword = await hashPassword(newPassword);
+
+  await db
+    .update(usersTable)
+    .set({
+      password: hashedPassword,
+    })
+    .where(eq(usersTable.id, userId));
+
+  await db
+    .delete(sessionsTable)
+    .where(
+      and(ne(sessionsTable.id, sessionId), eq(sessionsTable.userId, userId)),
+    );
 }

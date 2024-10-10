@@ -4,17 +4,26 @@ import jwt from "jsonwebtoken";
 
 import { STATUS } from "@/configs/constants";
 import { env } from "@/configs/env";
+import { HTTPError } from "@/errors/http-error";
 import { UnauthorizedError } from "@/errors/unauthorized-error";
 
-import { authorizeUserDTO, registerUserDTO, verifyUserDTO } from "./auth.dtos";
+import {
+  authorizeUserDTO,
+  changePasswordDTO,
+  registerUserDTO,
+  verifyUserDTO,
+} from "./auth.dtos";
 import {
   authorizeUser,
+  changePassword,
   createSession,
+  findUserById,
   logUserIn,
   logoutUser,
   registerUser,
   sendVerifyEmailLink,
   validateVerifyEmail,
+  verifyPassword,
 } from "./auth.services";
 
 export async function registerUserController(
@@ -103,4 +112,30 @@ export async function getMeController(
   reply: FastifyReply,
 ) {
   return reply.status(200).send({ status: "SUCCESS", message: "Hello" });
+}
+
+export async function changePasswordController(
+  request: FastifyRequest,
+  reply: FastifyReply,
+) {
+  const { newPassword, oldPassword } = changePasswordDTO.parse(request.body);
+
+  if (newPassword === oldPassword)
+    throw new HTTPError("New password can't be the same as old password", 400);
+
+  if (!request.user) throw new UnauthorizedError();
+  const { sessionId, userId } = request.user;
+
+  const currentUser = await findUserById(userId);
+  if (!currentUser) throw new UnauthorizedError();
+
+  if (!(await verifyPassword(oldPassword, currentUser.password)))
+    throw new HTTPError("Old password is incorrect", 401);
+
+  await changePassword(userId, newPassword, sessionId);
+
+  return reply.status(200).send({
+    status: STATUS.SUCCESS,
+    message: "Password changed successfully",
+  });
 }

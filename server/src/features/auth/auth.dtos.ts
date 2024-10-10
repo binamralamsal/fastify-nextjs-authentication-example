@@ -23,3 +23,12 @@ export const verifyUserDTO = z.object({
   email: z.string().trim().email({ message: "Invalid email address" }),
   token: z.string().min(1, { message: "Token is required" }),
 });
+
+export const changePasswordDTO = z.object({
+  oldPassword: z
+    .string()
+    .min(8, { message: "Old Password must be of 8 characters long" }),
+  newPassword: z
+    .string()
+    .min(8, { message: "New Password must be of 8 characters long" }),
+});
