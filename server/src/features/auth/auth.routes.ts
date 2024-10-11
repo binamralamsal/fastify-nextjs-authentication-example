@@ -35,4 +35,10 @@ export async function authRoutes(fastify: FastifyInstance) {
     { preHandler: authMiddleware },
     authControllers.enableTwoFactorAuthenticationController,
   );
+
+  fastify.post(
+    "/regenerate-backup-codes",
+    { preHandler: authMiddleware },
+    authControllers.regenerateBackupCodesController,
+  );
 }

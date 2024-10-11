@@ -24,11 +24,13 @@ import {
   findUserById,
   logUserIn,
   logoutUser,
+  regenerateAndStoreBackupCodes,
   registerUser,
   sendResetPasswordEmail,
   sendVerifyEmailLink,
   validateResetEmail,
   validateVerifyEmail,
+  verifyBackupCode,
   verifyPassword,
 } from "./auth.services";
 
@@ -48,7 +50,6 @@ export async function registerUserController(
     extra: { userId },
   });
 }
-
 export async function authorizeUserController(
   request: FastifyRequest,
   reply: FastifyReply,
@@ -60,20 +61,34 @@ export async function authorizeUserController(
     id: userId,
     authenticatorSecret,
   } = await authorizeUser(body);
-  if (authenticatorSecret) {
-    if (!body.token) throw new HTTPError("Token is required", 400);
-    const isValid = authenticator.verify({
-      token: body.token,
-      secret: authenticatorSecret,
-    });
 
-    if (!isValid) throw new HTTPError("Invalid Token", 401);
+  if (authenticatorSecret) {
+    if (!body.token && !body.backupCode) {
+      throw new HTTPError("Either token or backup code is required", 400);
+    }
+
+    if (body.token) {
+      const isTokenValid = authenticator.verify({
+        token: body.token,
+        secret: authenticatorSecret,
+      });
+
+      if (!isTokenValid) {
+        throw new HTTPError("Invalid token", 401);
+      }
+    } else if (body.backupCode) {
+      const isBackupCodeValid = await verifyBackupCode(userId, body.backupCode);
+
+      if (!isBackupCodeValid) {
+        throw new HTTPError("Invalid or already used backup code", 400);
+      }
+    }
   }
 
   await logUserIn({ request, userId, name, email, reply });
 
   return sendSuccessResponse(reply, {
-    message: "Authorized User Successfully",
+    message: "User authorized successfully",
     extra: { userId },
   });
 }
@@ -188,7 +203,21 @@ export async function enableTwoFactorAuthenticationController(
   const body = twoFactorAuthenticationDTO.parse(request.body);
   await enableTwoFactorAuthentication({ ...body, userId: request.user.userId });
 
-  sendSuccessResponse(reply, {
+  return sendSuccessResponse(reply, {
     message: "2fa Enabled Successfully",
+  });
+}
+
+export async function regenerateBackupCodesController(
+  request: FastifyRequest,
+  reply: FastifyReply,
+) {
+  if (!request.user) throw new UnauthorizedError();
+
+  const backupCodes = await regenerateAndStoreBackupCodes(request.user.userId);
+
+  return sendSuccessResponse(reply, {
+    message: "Backup codes regenerated successfully",
+    extra: { backupCodes, email: request.user.email },
   });
 }

@@ -11,6 +11,7 @@ import { env } from "@/configs/env";
 import { db } from "@/drizzle/db";
 import {
   authenticatorSecretsTable,
+  backupCodesTable,
   emailsTable,
   passwordResetTokensTable,
   sessionsTable,
@@ -309,31 +310,33 @@ export async function changePassword(
 ) {
   const hashedPassword = await hashPassword(newPassword);
 
-  await db
-    .update(usersTable)
-    .set({
-      password: hashedPassword,
-    })
-    .where(eq(usersTable.id, userId));
+  await db.transaction(async (tx) => {
+    await tx
+      .update(usersTable)
+      .set({
+        password: hashedPassword,
+      })
+      .where(eq(usersTable.id, userId));
 
-  await db
-    .delete(passwordResetTokensTable)
-    .where(eq(passwordResetTokensTable.userId, userId));
+    await tx
+      .delete(passwordResetTokensTable)
+      .where(eq(passwordResetTokensTable.userId, userId));
 
-  if (sessionToken) {
-    // Delete all sessions with the same token except the current one - Change Password
-    await db
-      .delete(sessionsTable)
-      .where(
-        and(
-          ne(sessionsTable.sessionToken, sessionToken),
-          eq(sessionsTable.userId, userId),
-        ),
-      );
-  } else {
-    // Delete all sessions with the same userId - Reset Password
-    await db.delete(sessionsTable).where(eq(sessionsTable.userId, userId));
-  }
+    if (sessionToken) {
+      // Delete all sessions with the same token except the current one - Change Password
+      await tx
+        .delete(sessionsTable)
+        .where(
+          and(
+            ne(sessionsTable.sessionToken, sessionToken),
+            eq(sessionsTable.userId, userId),
+          ),
+        );
+    } else {
+      // Delete all sessions with the same userId - Reset Password
+      await tx.delete(sessionsTable).where(eq(sessionsTable.userId, userId));
+    }
+  });
 }
 
 export async function createResetPasswordLink(email: string, userId: number) {
@@ -441,4 +444,69 @@ export async function enableTwoFactorAuthentication({
 
     throw err;
   }
+}
+
+function createBackupCodes(count: number) {
+  const backupCodes: string[] = [];
+
+  for (let i = 0; i < count; i++) {
+    const code = crypto.randomBytes(5).toString("hex");
+    backupCodes.push(code);
+  }
+
+  return backupCodes;
+}
+
+export async function regenerateAndStoreBackupCodes(userId: number) {
+  const user = await db.query.authenticatorSecretsTable.findFirst({
+    where: eq(authenticatorSecretsTable.userId, userId),
+  });
+
+  if (!user) throw new HTTPError("2fa is not enabled", 400);
+
+  const backupCodes = createBackupCodes(10);
+  const hashedCodes = await Promise.all(
+    backupCodes.map(async (code) => ({
+      userId,
+      code: await hashPassword(code),
+    })),
+  );
+
+  await db.transaction(async (tx) => {
+    // Delete all old backup codes before generating new one.
+    await tx
+      .delete(backupCodesTable)
+      .where(eq(backupCodesTable.userId, userId));
+    await tx.insert(backupCodesTable).values(hashedCodes).returning();
+  });
+
+  return backupCodes;
+}
+
+export async function verifyBackupCode(userId: number, code: string) {
+  const storedCodes = await db
+    .select()
+    .from(backupCodesTable)
+    .where(
+      and(
+        eq(backupCodesTable.userId, userId),
+        eq(backupCodesTable.used, false),
+      ),
+    );
+
+  if (storedCodes.length === 0)
+    throw new HTTPError("No backup codes found", 400);
+
+  for (const backupCode of storedCodes) {
+    const match = await verifyPassword(code, backupCode.code);
+
+    if (match) {
+      await db
+        .update(backupCodesTable)
+        .set({ used: true })
+        .where(eq(backupCodesTable.id, backupCode.id));
+      return true;
+    }
+  }
+  return false;
 }

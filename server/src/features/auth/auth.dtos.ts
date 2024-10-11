@@ -14,18 +14,32 @@ export const nameDTO = z
   .trim()
   .min(1, { message: "Name is required" });
 
-export const authorizeUserDTO = z.object({
+export const authorizeUserDTO = z
+  .object({
+    email: emailDTO,
+    password: passwordDTO,
+    token: z
+      .string()
+      .trim()
+      .min(6, { message: "Token must be of 6 digits" })
+      .max(6, { message: "Token must be of 6 digits" })
+      .optional(),
+    backupCode: z
+      .string()
+      .trim()
+      .min(1, { message: "Backup code is required" })
+      .optional(),
+  })
+  .refine((data) => !(data.token && data.backupCode), {
+    message: "Either token or backup code must be provided, not both.",
+    path: ["token", "backupCode"],
+  });
+
+export const registerUserDTO = z.object({
+  name: nameDTO,
   email: emailDTO,
   password: passwordDTO,
-  token: z
-    .string()
-    .trim()
-    .min(6, { message: "Token must be of 6 digits" })
-    .max(6, { message: "Token must be of 6 digits" })
-    .optional(),
 });
-
-export const registerUserDTO = authorizeUserDTO.extend({ name: nameDTO });
 
 export const refreshTokenDTO = z.object({
   sessionToken: z.string(),

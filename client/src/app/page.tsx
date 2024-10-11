@@ -13,6 +13,7 @@ export default function HomePage() {
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [loginToken, setLoginToken] = useState("");
+  const [loginBackupCode, setLoginBackupCode] = useState("");
   const [registerName, setRegisterName] = useState("");
   const [registerEmail, setRegisterEmail] = useState("");
   const [registerPassword, setRegisterPassword] = useState("");
@@ -29,6 +30,7 @@ export default function HomePage() {
           email: loginEmail,
           password: loginPassword,
           token: loginToken ? loginToken : undefined,
+          backupCode: loginBackupCode ? loginBackupCode : undefined,
         },
       })
       .json();
@@ -159,6 +161,17 @@ export default function HomePage() {
             placeholder="2fa Token"
             type="number"
             value={loginToken}
+          />
+        </div>
+
+        <div className="mb-4 grid w-full max-w-sm items-center gap-1.5">
+          <Label htmlFor="loginBackupCode">Backup Code (optional)</Label>
+          <Input
+            id="loginBackupCode"
+            onChange={handleChange(setLoginBackupCode)}
+            placeholder="Backup Code"
+            type="text"
+            value={loginBackupCode}
           />
         </div>
 

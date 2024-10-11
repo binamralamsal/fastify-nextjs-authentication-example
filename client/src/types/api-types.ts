@@ -29,6 +29,7 @@ export type API = {
         email: string;
         password: string;
         token?: string;
+        backupCode?: string;
       };
       success: SuccessResponse & {
         userId: number;
@@ -108,6 +109,16 @@ export type API = {
         token: string;
         secret: string;
       };
+    };
+  };
+
+  "/api/auth/regenerate-backup-codes": {
+    post: {
+      success: SuccessResponse & {
+        backupCodes: string[];
+        email: string;
+      };
+      error: ErrorResponse;
     };
   };
 };

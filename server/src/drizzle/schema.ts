@@ -90,6 +90,20 @@ export const passwordResetTokensTable = pgTable("password_reset_tokens", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+export const backupCodesTable = pgTable("backup_codes", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id")
+    .notNull()
+    .references(() => usersTable.id, { onDelete: "cascade" }),
+  code: text("code").notNull(),
+  used: boolean("used").notNull().default(false),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at")
+    .notNull()
+    .default(sql`CURRENT_TIMESTAMP`)
+    .$onUpdate(() => new Date()),
+});
+
 export const usersRelations = relations(usersTable, ({ one, many }) => ({
   email: one(emailsTable, {
     fields: [usersTable.id],
@@ -100,6 +114,7 @@ export const usersRelations = relations(usersTable, ({ one, many }) => ({
     references: [authenticatorSecretsTable.userId],
   }),
   sessions: many(sessionsTable),
+  backupCodes: many(backupCodesTable),
   passwordResetTokens: one(passwordResetTokensTable, {
     fields: [usersTable.id],
     references: [passwordResetTokensTable.userId],
@@ -116,6 +131,13 @@ export const emailsRelations = relations(emailsTable, ({ one }) => ({
 export const sessionsRelations = relations(sessionsTable, ({ one }) => ({
   user: one(usersTable, {
     fields: [sessionsTable.userId],
+    references: [usersTable.id],
+  }),
+}));
+
+export const backupCodesRelations = relations(backupCodesTable, ({ one }) => ({
+  user: one(usersTable, {
+    fields: [backupCodesTable.userId],
     references: [usersTable.id],
   }),
 }));
