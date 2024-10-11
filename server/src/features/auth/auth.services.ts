@@ -1,8 +1,9 @@
-import type { FastifyReply } from "fastify";
+import type { FastifyReply, FastifyRequest } from "fastify";
 
 import { and, eq, ne } from "drizzle-orm";
 import jwt from "jsonwebtoken";
 import crypto from "node:crypto";
+import { authenticator } from "otplib";
 import postgres from "postgres";
 
 import {
@@ -12,7 +13,12 @@ import {
 } from "@/configs/constants";
 import { env } from "@/configs/env";
 import { db } from "@/drizzle/db";
-import { emailsTable, sessionsTable, usersTable } from "@/drizzle/schema";
+import {
+  authenticatorSecretsTable,
+  emailsTable,
+  sessionsTable,
+  usersTable,
+} from "@/drizzle/schema";
 import ResetPasswordEmail from "@/emails/reset-password-email";
 import VerifyEmailLink from "@/emails/verify-email-link";
 import { HTTPError } from "@/errors/http-error";
@@ -81,12 +87,14 @@ export async function createSession(
   )[0];
 }
 
-export function createAccessToken(sessionToken: string, userId: number) {
+export function createAccessToken(data: {
+  sessionToken: string;
+  userId: number;
+  name: string;
+  email: string;
+}) {
   const now = Math.floor(Date.now() / 1000);
-  return jwt.sign(
-    { sessionToken, userId, exp: now + ACCESS_TOKEN_EXPIRY },
-    env.JWT_SECRET,
-  );
+  return jwt.sign({ ...data, exp: now + ACCESS_TOKEN_EXPIRY }, env.JWT_SECRET);
 }
 
 export function createRefreshToken(sessionToken: string) {
@@ -108,11 +116,23 @@ export function setTokensInCookies(
   });
 }
 
-export function logUserIn(
-  { sessionToken, userId }: { sessionToken: string; userId: number },
-  reply: FastifyReply,
-) {
-  const accessToken = createAccessToken(sessionToken, userId);
+export async function logUserIn({
+  request,
+  reply,
+  ...data
+}: {
+  request: FastifyRequest;
+  userId: number;
+  name: string;
+  email: string;
+  reply: FastifyReply;
+}) {
+  const { sessionToken } = await createSession(data.userId, {
+    ip: request.ip,
+    userAgent: request.headers["user-agent"] || "",
+  });
+
+  const accessToken = createAccessToken({ ...data, sessionToken });
   const refreshToken = createRefreshToken(sessionToken);
 
   setTokensInCookies(reply, accessToken, refreshToken);
@@ -125,9 +145,14 @@ export async function authorizeUser(data: { email: string; password: string }) {
       name: usersTable.name,
       password: usersTable.password,
       email: emailsTable.email,
+      authenticatorSecret: authenticatorSecretsTable.secret,
     })
     .from(usersTable)
     .innerJoin(emailsTable, eq(emailsTable.userId, usersTable.id))
+    .leftJoin(
+      authenticatorSecretsTable,
+      eq(authenticatorSecretsTable.userId, usersTable.id),
+    )
     .where(eq(emailsTable.email, data.email))
     .limit(1);
 
@@ -142,7 +167,7 @@ export async function authorizeUser(data: { email: string; password: string }) {
 
   if (!isAuthorized) throw new HTTPError(errorMessage, 401);
 
-  return currentUser.id;
+  return currentUser;
 }
 
 export async function logoutUser(
@@ -169,7 +194,9 @@ export function sendVerifyEmailLink(email: string, userId: number) {
       if (data) return null;
       if (error) throw new Error(error.message);
     })
-    .catch(logger.error);
+    .catch((err) => {
+      logger.error(err.message);
+    });
 }
 
 export function createVerifyEmailToken(email: string, userId: number) {
@@ -215,10 +242,20 @@ export function getUserFromAccessToken(accessToken: string) {
   }
 }
 
-export function findUserById(userId: number) {
-  return db.query.usersTable.findFirst({
-    where: eq(usersTable.id, userId),
-  });
+export async function findUserById(userId: number) {
+  const [currentUser] = await db
+    .select({
+      id: usersTable.id,
+      name: usersTable.name,
+      password: usersTable.password,
+      email: emailsTable.email,
+    })
+    .from(usersTable)
+    .innerJoin(emailsTable, eq(emailsTable.userId, usersTable.id))
+    .where(eq(emailsTable.userId, userId))
+    .limit(1);
+
+  return currentUser;
 }
 
 export function findSessionById(sessionToken: string) {
@@ -247,15 +284,22 @@ export async function refreshTokens({
     const user = await findUserById(currentSession.userId);
     if (!user) throw new UnauthorizedError();
 
-    logUserIn(
-      {
-        sessionToken: currentSession.sessionToken,
-        userId: user.id,
-      },
-      reply,
-    );
+    const accessTokenJwt = createAccessToken({
+      sessionToken: currentSession.sessionToken,
+      userId: user.id,
+      email: user.email,
+      name: user.name,
+    });
+    const refreshTokenJwt = createRefreshToken(currentSession.sessionToken);
 
-    return { userId: user.id, sessionToken: currentSession.sessionToken };
+    setTokensInCookies(reply, accessTokenJwt, refreshTokenJwt);
+
+    return {
+      userId: user.id,
+      sessionToken: currentSession.sessionToken,
+      email: user.email,
+      name: user.name,
+    };
   } catch {
     throw new UnauthorizedError();
   }
@@ -333,7 +377,9 @@ export async function sendResetPasswordEmail(email: string) {
       if (data) return null;
       if (error) throw new Error(error.message);
     })
-    .catch(logger.error);
+    .catch((err) => {
+      logger.error(err.message);
+    });
 }
 
 export async function validateResetEmail({
@@ -353,13 +399,38 @@ export async function validateResetEmail({
   if (Date.now() > Number(expiryTimeStamp))
     throw new HTTPError("Reset Password Link Expired!", 400);
 
-  const [{ userId }] = await db
+  const [data] = await db
     .select({ userId: emailsTable.userId })
     .from(emailsTable)
     .where(eq(emailsTable.email, email));
 
-  if (!userId)
-    throw new HTTPError("User with that email address doesn't exist", 400);
+  if (!data) throw new HTTPError("Reset Password Link Invalid!", 400);
 
-  return userId;
+  return data.userId;
+}
+
+export async function enableTwoFactorAuthentication({
+  userId,
+  ...data
+}: {
+  token: string;
+  secret: string;
+  userId: number;
+}) {
+  try {
+    const isValid = authenticator.verify(data);
+
+    if (!isValid) throw new HTTPError("Invalid Code", 400);
+
+    await db.insert(authenticatorSecretsTable).values({
+      secret: data.secret,
+      userId,
+    });
+  } catch (err) {
+    if (err instanceof PostgresError && err.code === "23505") {
+      throw new HTTPError("2fa is already enabled", 409);
+    }
+
+    throw err;
+  }
 }

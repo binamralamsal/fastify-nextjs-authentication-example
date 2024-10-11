@@ -5,6 +5,8 @@ declare module "fastify" {
     user?: {
       userId: number;
       sessionToken: string;
+      name: string;
+      email: string;
     };
   }
 }

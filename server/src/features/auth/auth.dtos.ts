@@ -17,6 +17,12 @@ export const nameDTO = z
 export const authorizeUserDTO = z.object({
   email: emailDTO,
   password: passwordDTO,
+  token: z
+    .string()
+    .trim()
+    .min(6, { message: "Token must be of 6 digits" })
+    .max(6, { message: "Token must be of 6 digits" })
+    .optional(),
 });
 
 export const registerUserDTO = authorizeUserDTO.extend({ name: nameDTO });
@@ -27,6 +33,8 @@ export const refreshTokenDTO = z.object({
 
 export const accessTokenDTO = refreshTokenDTO.extend({
   userId: z.number(),
+  name: z.string().min(1),
+  email: z.string().email(),
 });
 
 export const verifyUserDTO = z.object({
@@ -55,4 +63,9 @@ export const resetPasswordDTO = z.object({
   token: z.string().min(1, { message: "Token is required" }),
   password: passwordDTO,
   expiryTimeStamp: z.string().min(1, { message: "Time is required" }),
+});
+
+export const twoFactorAuthenticationDTO = z.object({
+  token: z.string().min(1, { message: "Token is required" }),
+  secret: z.string().min(1),
 });

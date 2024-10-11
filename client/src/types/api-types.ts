@@ -28,6 +28,7 @@ export type API = {
       body: {
         email: string;
         password: string;
+        token?: string;
       };
       success: SuccessResponse & {
         userId: number;
@@ -45,7 +46,12 @@ export type API = {
 
   "/api/auth/me": {
     get: {
-      success: SuccessResponse;
+      success: SuccessResponse & {
+        name: string;
+        email: string;
+        userId: string;
+        sessionToken: string;
+      };
       error: ErrorResponse;
     };
   };
@@ -91,6 +97,17 @@ export type API = {
         token: string;
         password: string;
         expiryTimeStamp: string;
+      };
+    };
+  };
+
+  "/api/auth/enable-2fa": {
+    post: {
+      success: SuccessResponse;
+      error: ErrorResponse;
+      body: {
+        token: string;
+        secret: string;
       };
     };
   };

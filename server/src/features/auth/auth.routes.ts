@@ -29,4 +29,10 @@ export async function authRoutes(fastify: FastifyInstance) {
 
   fastify.post("/forgot-password", authControllers.forgotPasswordController);
   fastify.post("/reset-password", authControllers.resetPasswordController);
+
+  fastify.post(
+    "/enable-2fa",
+    { preHandler: authMiddleware },
+    authControllers.enableTwoFactorAuthenticationController,
+  );
 }

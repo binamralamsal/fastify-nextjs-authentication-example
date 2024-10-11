@@ -61,10 +61,28 @@ export const sessionsTable = pgTable("sessions", {
     .$onUpdate(() => new Date()),
 });
 
+export const authenticatorSecretsTable = pgTable("authenticator_secrets", {
+  id: serial("id").primaryKey(),
+  secret: text("secret").notNull(),
+  userId: integer("user_id")
+    .notNull()
+    .references(() => usersTable.id, { onDelete: "cascade" })
+    .unique(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at")
+    .notNull()
+    .default(sql`CURRENT_TIMESTAMP`)
+    .$onUpdate(() => new Date()),
+});
+
 export const usersRelations = relations(usersTable, ({ one, many }) => ({
   email: one(emailsTable, {
     fields: [usersTable.id],
     references: [emailsTable.userId],
+  }),
+  authenticatorSecret: one(authenticatorSecretsTable, {
+    fields: [usersTable.id],
+    references: [authenticatorSecretsTable.userId],
   }),
   sessions: many(sessionsTable),
 }));
@@ -82,3 +100,13 @@ export const sessionsRelations = relations(sessionsTable, ({ one }) => ({
     references: [usersTable.id],
   }),
 }));
+
+export const authenticatorSecretsRelations = relations(
+  authenticatorSecretsTable,
+  ({ one }) => ({
+    user: one(usersTable, {
+      fields: [authenticatorSecretsTable.userId],
+      references: [usersTable.id],
+    }),
+  }),
+);

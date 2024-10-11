@@ -10,6 +10,7 @@ export function errorHandler(
   request: FastifyRequest,
   reply: FastifyReply,
 ) {
+  console.error(error);
   if (error instanceof ZodError) {
     return reply.status(422).send({
       error,

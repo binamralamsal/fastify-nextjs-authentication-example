@@ -15,6 +15,13 @@
       "when": 1728584192233,
       "tag": "0001_odd_stone_men",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1728644652290,
+      "tag": "0002_premium_scalphunter",
+      "breakpoints": true
     }
   ]
 }

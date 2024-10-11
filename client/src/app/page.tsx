@@ -12,6 +12,7 @@ import { api } from "@/utils/client-api";
 export default function HomePage() {
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
+  const [loginToken, setLoginToken] = useState("");
   const [registerName, setRegisterName] = useState("");
   const [registerEmail, setRegisterEmail] = useState("");
   const [registerPassword, setRegisterPassword] = useState("");
@@ -24,7 +25,11 @@ export default function HomePage() {
 
     const response = await api
       .post("/api/auth/authorize", {
-        body: { email: loginEmail, password: loginPassword },
+        body: {
+          email: loginEmail,
+          password: loginPassword,
+          token: loginToken ? loginToken : undefined,
+        },
       })
       .json();
 
@@ -145,6 +150,18 @@ export default function HomePage() {
             value={loginPassword}
           />
         </div>
+
+        <div className="mb-4 grid w-full max-w-sm items-center gap-1.5">
+          <Label htmlFor="loginToken">Token (optional)</Label>
+          <Input
+            id="loginToken"
+            onChange={handleChange(setLoginToken)}
+            placeholder="2fa Token"
+            type="number"
+            value={loginToken}
+          />
+        </div>
+
         <Button className="w-full" size="lg" type="submit">
           Login
         </Button>

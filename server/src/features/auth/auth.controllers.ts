@@ -1,6 +1,7 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 
 import jwt from "jsonwebtoken";
+import { authenticator } from "otplib";
 
 import { env } from "@/configs/env";
 import { HTTPError } from "@/errors/http-error";
@@ -13,12 +14,13 @@ import {
   forgotPasswordDTO,
   registerUserDTO,
   resetPasswordDTO,
+  twoFactorAuthenticationDTO,
   verifyUserDTO,
 } from "./auth.dtos";
 import {
   authorizeUser,
   changePassword,
-  createSession,
+  enableTwoFactorAuthentication,
   findUserById,
   logUserIn,
   logoutUser,
@@ -35,14 +37,10 @@ export async function registerUserController(
   reply: FastifyReply,
 ) {
   const body = registerUserDTO.parse(request.body);
-  const { userId } = await registerUser(body);
-  const { sessionToken } = await createSession(userId, {
-    ip: request.ip,
-    userAgent: request.headers["user-agent"] || "",
-  });
+  const { userId, name, email } = await registerUser(body);
 
   sendVerifyEmailLink(body.email, userId);
-  logUserIn({ sessionToken, userId }, reply);
+  await logUserIn({ request, userId, name, email, reply });
 
   return sendSuccessResponse(reply, {
     message: "Registered User Successfully",
@@ -56,13 +54,23 @@ export async function authorizeUserController(
   reply: FastifyReply,
 ) {
   const body = authorizeUserDTO.parse(request.body);
-  const userId = await authorizeUser(body);
-  const { sessionToken } = await createSession(userId, {
-    ip: request.ip,
-    userAgent: request.headers["user-agent"] || "",
-  });
+  const {
+    name,
+    email,
+    id: userId,
+    authenticatorSecret,
+  } = await authorizeUser(body);
+  if (authenticatorSecret) {
+    if (!body.token) throw new HTTPError("Token is required", 400);
+    const isValid = authenticator.verify({
+      token: body.token,
+      secret: authenticatorSecret,
+    });
 
-  logUserIn({ sessionToken, userId }, reply);
+    if (!isValid) throw new HTTPError("Invalid Token", 401);
+  }
+
+  await logUserIn({ request, userId, name, email, reply });
 
   return sendSuccessResponse(reply, {
     message: "Authorized User Successfully",
@@ -76,7 +84,6 @@ export async function logoutUserController(
 ) {
   try {
     if (!request.cookies.refreshToken) throw new UnauthorizedError();
-
     const rawRefreshToken = request.unsignCookie(request.cookies.refreshToken);
     if (!rawRefreshToken.valid || !rawRefreshToken.value) {
       reply.clearCookie("refreshToken");
@@ -84,6 +91,7 @@ export async function logoutUserController(
     }
 
     const refreshToken = jwt.verify(rawRefreshToken.value, env.JWT_SECRET);
+
     await logoutUser(refreshToken, reply);
 
     return sendSuccessResponse(reply, { message: "Logged Out Successfully" });
@@ -110,7 +118,12 @@ export async function getMeController(
   request: FastifyRequest,
   reply: FastifyReply,
 ) {
-  return sendSuccessResponse(reply, { message: "Hello" });
+  if (!request.user) throw new UnauthorizedError();
+
+  return sendSuccessResponse(reply, {
+    message: `Hello ${request.user.name}`,
+    extra: request.user,
+  });
 }
 
 export async function changePasswordController(
@@ -163,5 +176,19 @@ export async function resetPasswordController(
   return sendSuccessResponse(reply, {
     message:
       "Password changed successfully! You can now login with your email address and new password.",
+  });
+}
+
+export async function enableTwoFactorAuthenticationController(
+  request: FastifyRequest,
+  reply: FastifyReply,
+) {
+  if (!request.user) throw new UnauthorizedError();
+
+  const body = twoFactorAuthenticationDTO.parse(request.body);
+  await enableTwoFactorAuthentication({ ...body, userId: request.user.userId });
+
+  sendSuccessResponse(reply, {
+    message: "2fa Enabled Successfully",
   });
 }

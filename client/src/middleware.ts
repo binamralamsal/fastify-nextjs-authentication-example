@@ -20,7 +20,6 @@ export default async function middleware(request: NextRequest) {
       })
       .json();
     const responseCookie = response.headers.get("set-cookie");
-    console.log(responseCookie);
     if (!responseCookie) throw new Error("No set-cookie header in response");
 
     const parsedCookies = parseCookies(responseCookie);
