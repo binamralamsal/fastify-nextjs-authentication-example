@@ -96,7 +96,6 @@ export type API = {
         email: string;
         token: string;
         password: string;
-        expiryTimeStamp: string;
       };
     };
   };

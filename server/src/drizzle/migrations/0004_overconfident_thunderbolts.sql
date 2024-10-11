@@ -1,0 +1,1 @@
+ALTER TABLE "password_reset_tokens" ALTER COLUMN "expires_at" SET DEFAULT CURRENT_TIMESTAMP + INTERVAL '1 day';

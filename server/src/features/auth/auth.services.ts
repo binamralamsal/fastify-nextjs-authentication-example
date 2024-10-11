@@ -1,21 +1,18 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 
-import { and, eq, ne } from "drizzle-orm";
+import { and, eq, gt, ne } from "drizzle-orm";
 import jwt from "jsonwebtoken";
 import crypto from "node:crypto";
 import { authenticator } from "otplib";
 import postgres from "postgres";
 
-import {
-  ACCESS_TOKEN_EXPIRY,
-  REFRESH_TOKEN_EXPIRY,
-  RESET_PASSWORD_EXPIRY,
-} from "@/configs/constants";
+import { ACCESS_TOKEN_EXPIRY, REFRESH_TOKEN_EXPIRY } from "@/configs/constants";
 import { env } from "@/configs/env";
 import { db } from "@/drizzle/db";
 import {
   authenticatorSecretsTable,
   emailsTable,
+  passwordResetTokensTable,
   sessionsTable,
   usersTable,
 } from "@/drizzle/schema";
@@ -319,6 +316,10 @@ export async function changePassword(
     })
     .where(eq(usersTable.id, userId));
 
+  await db
+    .delete(passwordResetTokensTable)
+    .where(eq(passwordResetTokensTable.userId, userId));
+
   if (sessionToken) {
     // Delete all sessions with the same token except the current one - Change Password
     await db
@@ -335,20 +336,19 @@ export async function changePassword(
   }
 }
 
-export function createResetPasswordToken(
-  email: string,
-  expiryTimeStamp: string,
-) {
-  const authString = `${env.JWT_SECRET}:${email}:${expiryTimeStamp}`;
-  return crypto.createHash("sha256").update(authString).digest("hex");
-}
-
-export function createResetPasswordLink(email: string) {
+export async function createResetPasswordLink(email: string, userId: number) {
   const uriEncodedEmail = encodeURIComponent(email);
-  const expiryTimeStamp = Date.now() + RESET_PASSWORD_EXPIRY;
-  const token = createResetPasswordToken(email, String(expiryTimeStamp));
 
-  return `https://${env.FRONTEND_DOMAIN}/reset-password?email=${uriEncodedEmail}&expiryTimeStamp=${expiryTimeStamp}&token=${token}`;
+  await db
+    .delete(passwordResetTokensTable)
+    .where(eq(passwordResetTokensTable.userId, userId));
+
+  const [data] = await db
+    .insert(passwordResetTokensTable)
+    .values({ userId })
+    .returning();
+
+  return `https://${env.FRONTEND_DOMAIN}/reset-password?email=${uriEncodedEmail}&token=${data.token}`;
 }
 
 export async function sendResetPasswordEmail(email: string) {
@@ -367,7 +367,11 @@ export async function sendResetPasswordEmail(email: string) {
   if (!currentUser)
     throw new HTTPError("User with that email address doesn't exist", 400);
 
-  const resetPasswordLink = createResetPasswordLink(email);
+  const resetPasswordLink = await createResetPasswordLink(
+    email,
+    currentUser.id,
+  );
+
   sendEmail({
     to: [email],
     subject: "Reset Your Password",
@@ -384,27 +388,31 @@ export async function sendResetPasswordEmail(email: string) {
 
 export async function validateResetEmail({
   email,
-  expiryTimeStamp,
   token,
 }: {
   token: string;
   email: string;
-  expiryTimeStamp: string;
 }) {
-  const resetToken = createResetPasswordToken(email, expiryTimeStamp);
-
-  if (resetToken !== token)
-    throw new HTTPError("Reset Password Link Invalid!", 400);
-
-  if (Date.now() > Number(expiryTimeStamp))
-    throw new HTTPError("Reset Password Link Expired!", 400);
-
   const [data] = await db
-    .select({ userId: emailsTable.userId })
-    .from(emailsTable)
-    .where(eq(emailsTable.email, email));
+    .select({
+      token: passwordResetTokensTable.token,
+      expiresAt: passwordResetTokensTable.expiresAt,
+      userId: passwordResetTokensTable.userId,
+      email: emailsTable.email,
+    })
+    .from(passwordResetTokensTable)
+    .innerJoin(usersTable, eq(passwordResetTokensTable.userId, usersTable.id))
+    .innerJoin(emailsTable, eq(usersTable.id, emailsTable.userId))
+    .where(
+      and(
+        eq(passwordResetTokensTable.token, token),
+        eq(emailsTable.email, email),
+        gt(passwordResetTokensTable.expiresAt, new Date()),
+      ),
+    );
 
-  if (!data) throw new HTTPError("Reset Password Link Invalid!", 400);
+  if (!data)
+    throw new HTTPError("Reset Password Link Invalid or Expired!", 400);
 
   return data.userId;
 }

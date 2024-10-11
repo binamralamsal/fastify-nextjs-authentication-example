@@ -75,6 +75,21 @@ export const authenticatorSecretsTable = pgTable("authenticator_secrets", {
     .$onUpdate(() => new Date()),
 });
 
+export const passwordResetTokensTable = pgTable("password_reset_tokens", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id")
+    .notNull()
+    .references(() => usersTable.id, { onDelete: "cascade" })
+    .unique(),
+  token: text("token")
+    .notNull()
+    .default(sql`gen_random_uuid()`),
+  expiresAt: timestamp("expires_at")
+    .notNull()
+    .default(sql`CURRENT_TIMESTAMP + INTERVAL '1 day'`),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 export const usersRelations = relations(usersTable, ({ one, many }) => ({
   email: one(emailsTable, {
     fields: [usersTable.id],
@@ -85,6 +100,10 @@ export const usersRelations = relations(usersTable, ({ one, many }) => ({
     references: [authenticatorSecretsTable.userId],
   }),
   sessions: many(sessionsTable),
+  passwordResetTokens: one(passwordResetTokensTable, {
+    fields: [usersTable.id],
+    references: [passwordResetTokensTable.userId],
+  }),
 }));
 
 export const emailsRelations = relations(emailsTable, ({ one }) => ({
@@ -100,6 +119,16 @@ export const sessionsRelations = relations(sessionsTable, ({ one }) => ({
     references: [usersTable.id],
   }),
 }));
+
+export const passwordResetTokensRelations = relations(
+  passwordResetTokensTable,
+  ({ one }) => ({
+    user: one(usersTable, {
+      fields: [passwordResetTokensTable.userId],
+      references: [usersTable.id],
+    }),
+  }),
+);
 
 export const authenticatorSecretsRelations = relations(
   authenticatorSecretsTable,

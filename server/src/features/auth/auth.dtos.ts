@@ -62,7 +62,6 @@ export const resetPasswordDTO = z.object({
   email: emailDTO,
   token: z.string().min(1, { message: "Token is required" }),
   password: passwordDTO,
-  expiryTimeStamp: z.string().min(1, { message: "Time is required" }),
 });
 
 export const twoFactorAuthenticationDTO = z.object({
