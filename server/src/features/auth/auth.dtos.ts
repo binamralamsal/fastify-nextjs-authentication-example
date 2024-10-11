@@ -1,15 +1,25 @@
 import { z } from "zod";
 
+export const emailDTO = z
+  .string()
+  .trim()
+  .email({ message: "Invalid email address" });
+
+export const passwordDTO = z
+  .string()
+  .min(8, { message: "Password must be of 8 characters long" });
+
+export const nameDTO = z
+  .string()
+  .trim()
+  .min(1, { message: "Name is required" });
+
 export const authorizeUserDTO = z.object({
-  email: z.string().trim().email({ message: "Invalid email address" }),
-  password: z
-    .string()
-    .min(8, { message: "Password must be of 8 characters long" }),
+  email: emailDTO,
+  password: passwordDTO,
 });
 
-export const registerUserDTO = authorizeUserDTO.extend({
-  name: z.string().trim().min(1, { message: "Name is required" }),
-});
+export const registerUserDTO = authorizeUserDTO.extend({ name: nameDTO });
 
 export const refreshTokenDTO = z.object({
   sessionToken: z.string(),
@@ -20,7 +30,7 @@ export const accessTokenDTO = refreshTokenDTO.extend({
 });
 
 export const verifyUserDTO = z.object({
-  email: z.string().trim().email({ message: "Invalid email address" }),
+  email: emailDTO,
   token: z.string().min(1, { message: "Token is required" }),
 });
 
@@ -31,4 +41,13 @@ export const changePasswordDTO = z.object({
   newPassword: z
     .string()
     .min(8, { message: "New Password must be of 8 characters long" }),
+});
+
+export const forgotPasswordDTO = z.object({ email: emailDTO });
+
+export const resetPasswordDTO = z.object({
+  email: emailDTO,
+  token: z.string().min(1, { message: "Token is required" }),
+  password: passwordDTO,
+  expiryTimeStamp: z.string().min(1, { message: "Time is required" }),
 });

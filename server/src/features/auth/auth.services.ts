@@ -5,10 +5,15 @@ import jwt from "jsonwebtoken";
 import crypto from "node:crypto";
 import postgres from "postgres";
 
-import { ACCESS_TOKEN_EXPIRY, REFRESH_TOKEN_EXPIRY } from "@/configs/constants";
+import {
+  ACCESS_TOKEN_EXPIRY,
+  REFRESH_TOKEN_EXPIRY,
+  RESET_PASSWORD_EXPIRY,
+} from "@/configs/constants";
 import { env } from "@/configs/env";
 import { db } from "@/drizzle/db";
 import { emailsTable, sessionsTable, usersTable } from "@/drizzle/schema";
+import ResetPasswordEmail from "@/emails/reset-password-email";
 import VerifyEmailLink from "@/emails/verify-email-link";
 import { HTTPError } from "@/errors/http-error";
 import { UnauthorizedError } from "@/errors/unauthorized-error";
@@ -144,7 +149,6 @@ export async function logoutUser(
 export function sendVerifyEmailLink(email: string, userId: number) {
   const emailLink = createVerifyEmailLink(email, userId);
   sendEmail({
-    from: "Auth Sample <binamralamsal@resend.dev>",
     to: [email],
     subject: "Verify your Email",
     react: VerifyEmailLink({ url: emailLink }),
@@ -248,7 +252,7 @@ export async function refreshTokens({
 export async function changePassword(
   userId: number,
   newPassword: string,
-  sessionToken: string,
+  sessionToken?: string,
 ) {
   const hashedPassword = await hashPassword(newPassword);
 
@@ -259,12 +263,91 @@ export async function changePassword(
     })
     .where(eq(usersTable.id, userId));
 
-  await db
-    .delete(sessionsTable)
-    .where(
-      and(
-        ne(sessionsTable.sessionToken, sessionToken),
-        eq(sessionsTable.userId, userId),
-      ),
-    );
+  if (sessionToken) {
+    // Delete all sessions with the same token except the current one - Change Password
+    await db
+      .delete(sessionsTable)
+      .where(
+        and(
+          ne(sessionsTable.sessionToken, sessionToken),
+          eq(sessionsTable.userId, userId),
+        ),
+      );
+  } else {
+    // Delete all sessions with the same userId - Reset Password
+    await db.delete(sessionsTable).where(eq(sessionsTable.userId, userId));
+  }
+}
+
+export function createResetPasswordToken(
+  email: string,
+  expiryTimeStamp: string,
+) {
+  const authString = `${env.JWT_SECRET}:${email}:${expiryTimeStamp}`;
+  return crypto.createHash("sha256").update(authString).digest("hex");
+}
+
+export function createResetPasswordLink(email: string) {
+  const uriEncodedEmail = encodeURIComponent(email);
+  const expiryTimeStamp = Date.now() + RESET_PASSWORD_EXPIRY;
+  const token = createResetPasswordToken(email, String(expiryTimeStamp));
+
+  return `https://${env.FRONTEND_DOMAIN}/reset-password?email=${uriEncodedEmail}&expiryTimeStamp=${expiryTimeStamp}&token=${token}`;
+}
+
+export async function sendResetPasswordEmail(email: string) {
+  const [currentUser] = await db
+    .select({
+      id: usersTable.id,
+      name: usersTable.name,
+      password: usersTable.password,
+      email: emailsTable.email,
+    })
+    .from(usersTable)
+    .innerJoin(emailsTable, eq(emailsTable.userId, usersTable.id))
+    .where(eq(emailsTable.email, email))
+    .limit(1);
+
+  if (!currentUser)
+    throw new HTTPError("User with that email address doesn't exist", 400);
+
+  const resetPasswordLink = createResetPasswordLink(email);
+  sendEmail({
+    to: [email],
+    subject: "Reset Your Password",
+    react: ResetPasswordEmail({ url: resetPasswordLink }),
+  })
+    .then(({ data, error }) => {
+      if (data) return null;
+      if (error) throw new Error(error.message);
+    })
+    .catch(logger.error);
+}
+
+export async function validateResetEmail({
+  email,
+  expiryTimeStamp,
+  token,
+}: {
+  token: string;
+  email: string;
+  expiryTimeStamp: string;
+}) {
+  const resetToken = createResetPasswordToken(email, expiryTimeStamp);
+
+  if (resetToken !== token)
+    throw new HTTPError("Reset Password Link Invalid!", 400);
+
+  if (Date.now() > Number(expiryTimeStamp))
+    throw new HTTPError("Reset Password Link Expired!", 400);
+
+  const [{ userId }] = await db
+    .select({ userId: emailsTable.userId })
+    .from(emailsTable)
+    .where(eq(emailsTable.email, email));
+
+  if (!userId)
+    throw new HTTPError("User with that email address doesn't exist", 400);
+
+  return userId;
 }

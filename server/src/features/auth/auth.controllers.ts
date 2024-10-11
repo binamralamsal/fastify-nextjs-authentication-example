@@ -10,7 +10,9 @@ import { UnauthorizedError } from "@/errors/unauthorized-error";
 import {
   authorizeUserDTO,
   changePasswordDTO,
+  forgotPasswordDTO,
   registerUserDTO,
+  resetPasswordDTO,
   verifyUserDTO,
 } from "./auth.dtos";
 import {
@@ -21,7 +23,9 @@ import {
   logUserIn,
   logoutUser,
   registerUser,
+  sendResetPasswordEmail,
   sendVerifyEmailLink,
+  validateResetEmail,
   validateVerifyEmail,
   verifyPassword,
 } from "./auth.services";
@@ -138,5 +142,34 @@ export async function changePasswordController(
   return reply.status(200).send({
     status: STATUS.SUCCESS,
     message: "Password changed successfully",
+  });
+}
+
+export async function forgotPasswordController(
+  request: FastifyRequest,
+  reply: FastifyReply,
+) {
+  const { email } = forgotPasswordDTO.parse(request.body);
+
+  await sendResetPasswordEmail(email);
+  return reply.status(200).send({
+    status: STATUS.SUCCESS,
+    message: "Please check your email to reset your password.",
+  });
+}
+
+export async function resetPasswordController(
+  request: FastifyRequest,
+  reply: FastifyReply,
+) {
+  const { password, ...data } = resetPasswordDTO.parse(request.body);
+
+  const userId = await validateResetEmail(data);
+  await changePassword(userId, password);
+
+  return reply.status(200).send({
+    status: STATUS.SUCCESS,
+    message:
+      "Password changed successfully! You can now login with your email address and new password.",
   });
 }

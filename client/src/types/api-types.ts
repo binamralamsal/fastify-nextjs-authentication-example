@@ -71,4 +71,27 @@ export type API = {
       };
     };
   };
+
+  "/api/auth/forgot-password": {
+    post: {
+      success: SuccessResponse;
+      error: ErrorResponse;
+      body: {
+        email: string;
+      };
+    };
+  };
+
+  "/api/auth/reset-password": {
+    post: {
+      success: SuccessResponse;
+      error: ErrorResponse;
+      body: {
+        email: string;
+        token: string;
+        password: string;
+        expiryTimeStamp: string;
+      };
+    };
+  };
 };

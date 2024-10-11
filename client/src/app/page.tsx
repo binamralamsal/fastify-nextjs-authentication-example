@@ -17,7 +17,7 @@ export default function HomePage() {
   const [registerPassword, setRegisterPassword] = useState("");
   const [changeOldPassword, setChangeOldPassword] = useState("");
   const [changeNewPassword, setChangeNewPassword] = useState("");
-  // const [forgotPasswordEmail, setForgotPasswordEmail] = useState("");
+  const [forgotPasswordEmail, setForgotPasswordEmail] = useState("");
 
   async function handleLogin(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -94,15 +94,21 @@ export default function HomePage() {
     }
   }
 
-  // async function handleForgotPassword() {
-  //   const { data, error } = await api.auth.logout.post();
+  async function handleForgotPassword(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
 
-  //   if (error) {
-  //     toast.error(error.message);
-  //   } else {
-  //     toast.success(data);
-  //   }
-  // }
+    const response = await api
+      .post("/api/auth/forgot-password", {
+        body: { email: forgotPasswordEmail },
+      })
+      .json();
+
+    if (response.ok) {
+      toast.success(response.data.message);
+    } else {
+      toast.error(response.data.message);
+    }
+  }
 
   function handleChange(setter: React.Dispatch<React.SetStateAction<string>>) {
     return (e: ChangeEvent<HTMLInputElement>) => {
@@ -219,7 +225,7 @@ export default function HomePage() {
         </Button>
       </form>
 
-      {/* <form
+      <form
         className="w-full max-w-md rounded bg-white p-6 shadow-md"
         onSubmit={handleForgotPassword}
       >
@@ -238,7 +244,7 @@ export default function HomePage() {
         <Button className="w-full" size="lg" type="submit">
           Send Reset Password Email
         </Button>
-      </form> */}
+      </form>
 
       <div className="w-full max-w-md space-y-3">
         <Button
