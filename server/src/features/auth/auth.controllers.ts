@@ -2,10 +2,10 @@ import type { FastifyReply, FastifyRequest } from "fastify";
 
 import jwt from "jsonwebtoken";
 
-import { STATUS } from "@/configs/constants";
 import { env } from "@/configs/env";
 import { HTTPError } from "@/errors/http-error";
 import { UnauthorizedError } from "@/errors/unauthorized-error";
+import { sendSuccessResponse } from "@/utils/send-success-response";
 
 import {
   authorizeUserDTO,
@@ -44,10 +44,10 @@ export async function registerUserController(
   sendVerifyEmailLink(body.email, userId);
   logUserIn({ sessionToken, userId }, reply);
 
-  return reply.status(201).send({
-    status: STATUS.SUCCESS,
+  return sendSuccessResponse(reply, {
     message: "Registered User Successfully",
-    userId,
+    status: 201,
+    extra: { userId },
   });
 }
 
@@ -64,10 +64,9 @@ export async function authorizeUserController(
 
   logUserIn({ sessionToken, userId }, reply);
 
-  return reply.status(200).send({
-    status: STATUS.SUCCESS,
+  return sendSuccessResponse(reply, {
     message: "Authorized User Successfully",
-    userId,
+    extra: { userId },
   });
 }
 
@@ -87,12 +86,8 @@ export async function logoutUserController(
     const refreshToken = jwt.verify(rawRefreshToken.value, env.JWT_SECRET);
     await logoutUser(refreshToken, reply);
 
-    return reply.send({
-      status: STATUS.SUCCESS,
-      message: "Logged Out Successfully",
-    });
-  } catch (err) {
-    console.log(err);
+    return sendSuccessResponse(reply, { message: "Logged Out Successfully" });
+  } catch {
     throw new UnauthorizedError();
   }
 }
@@ -106,8 +101,7 @@ export async function verifyEmailController(
 
   await validateVerifyEmail({ ...body, userId: request.user.userId });
 
-  return reply.status(200).send({
-    status: STATUS.SUCCESS,
+  return sendSuccessResponse(reply, {
     message: "Your email address has been verified",
   });
 }
@@ -116,7 +110,7 @@ export async function getMeController(
   request: FastifyRequest,
   reply: FastifyReply,
 ) {
-  return reply.status(200).send({ status: "SUCCESS", message: "Hello" });
+  return sendSuccessResponse(reply, { message: "Hello" });
 }
 
 export async function changePasswordController(
@@ -139,8 +133,7 @@ export async function changePasswordController(
 
   await changePassword(userId, newPassword, sessionToken);
 
-  return reply.status(200).send({
-    status: STATUS.SUCCESS,
+  return sendSuccessResponse(reply, {
     message: "Password changed successfully",
   });
 }
@@ -152,8 +145,8 @@ export async function forgotPasswordController(
   const { email } = forgotPasswordDTO.parse(request.body);
 
   await sendResetPasswordEmail(email);
-  return reply.status(200).send({
-    status: STATUS.SUCCESS,
+
+  return sendSuccessResponse(reply, {
     message: "Please check your email to reset your password.",
   });
 }
@@ -167,8 +160,7 @@ export async function resetPasswordController(
   const userId = await validateResetEmail(data);
   await changePassword(userId, password);
 
-  return reply.status(200).send({
-    status: STATUS.SUCCESS,
+  return sendSuccessResponse(reply, {
     message:
       "Password changed successfully! You can now login with your email address and new password.",
   });

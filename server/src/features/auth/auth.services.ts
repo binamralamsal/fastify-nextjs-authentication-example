@@ -81,29 +81,41 @@ export async function createSession(
   )[0];
 }
 
-export function logUserIn(
-  { sessionToken, userId }: { sessionToken: string; userId: number },
-  reply: FastifyReply,
-) {
+export function createAccessToken(sessionToken: string, userId: number) {
   const now = Math.floor(Date.now() / 1000);
-
-  const accessToken = jwt.sign(
-    {
-      sessionToken,
-      userId,
-      exp: now + ACCESS_TOKEN_EXPIRY,
-    },
+  return jwt.sign(
+    { sessionToken, userId, exp: now + ACCESS_TOKEN_EXPIRY },
     env.JWT_SECRET,
   );
-  const refreshToken = jwt.sign(
+}
+
+export function createRefreshToken(sessionToken: string) {
+  const now = Math.floor(Date.now() / 1000);
+  return jwt.sign(
     { sessionToken, exp: now + REFRESH_TOKEN_EXPIRY },
     env.JWT_SECRET,
   );
-  console.log({ accessToken, refreshToken });
+}
+
+export function setTokensInCookies(
+  reply: FastifyReply,
+  accessToken: string,
+  refreshToken: string,
+) {
   reply.setCookie("accessToken", accessToken, { maxAge: ACCESS_TOKEN_EXPIRY });
   reply.setCookie("refreshToken", refreshToken, {
     maxAge: REFRESH_TOKEN_EXPIRY,
   });
+}
+
+export function logUserIn(
+  { sessionToken, userId }: { sessionToken: string; userId: number },
+  reply: FastifyReply,
+) {
+  const accessToken = createAccessToken(sessionToken, userId);
+  const refreshToken = createRefreshToken(sessionToken);
+
+  setTokensInCookies(reply, accessToken, refreshToken);
 }
 
 export async function authorizeUser(data: { email: string; password: string }) {

@@ -34,14 +34,19 @@ export const verifyUserDTO = z.object({
   token: z.string().min(1, { message: "Token is required" }),
 });
 
-export const changePasswordDTO = z.object({
-  oldPassword: z
-    .string()
-    .min(8, { message: "Old Password must be of 8 characters long" }),
-  newPassword: z
-    .string()
-    .min(8, { message: "New Password must be of 8 characters long" }),
-});
+export const changePasswordDTO = z
+  .object({
+    oldPassword: z
+      .string()
+      .min(8, { message: "Old Password must be of 8 characters long" }),
+    newPassword: z
+      .string()
+      .min(8, { message: "New Password must be of 8 characters long" }),
+  })
+  .refine((data) => data.oldPassword !== data.newPassword, {
+    message: "Old Password can't be same as new password",
+    path: ["newPassword"],
+  });
 
 export const forgotPasswordDTO = z.object({ email: emailDTO });
 
