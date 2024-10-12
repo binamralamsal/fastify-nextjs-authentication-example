@@ -21,6 +21,12 @@ export async function authRoutes(fastify: FastifyInstance) {
     authControllers.getMeController,
   );
 
+  fastify.get(
+    "/profile",
+    { preHandler: authMiddleware },
+    authControllers.profileController,
+  );
+
   fastify.post(
     "/change-password",
     { preHandler: authMiddleware },
@@ -34,6 +40,12 @@ export async function authRoutes(fastify: FastifyInstance) {
     "/enable-2fa",
     { preHandler: authMiddleware },
     authControllers.enableTwoFactorAuthenticationController,
+  );
+
+  fastify.post(
+    "/disable-2fa",
+    { preHandler: authMiddleware },
+    authControllers.disableTwoFactorAuthenticationController,
   );
 
   fastify.post(

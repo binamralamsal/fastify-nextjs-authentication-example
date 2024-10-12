@@ -5,6 +5,7 @@ export type Options = {
   credentials?: "omit" | "same-origin" | "include";
   baseUrl?: string;
   signal?: AbortSignal;
+  cache?: RequestCache;
 };
 
 export type Prettify<T> = {

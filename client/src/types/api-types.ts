@@ -112,11 +112,30 @@ export type API = {
     };
   };
 
+  "/api/auth/disable-2fa": {
+    post: {
+      success: SuccessResponse;
+      error: ErrorResponse;
+    };
+  };
+
   "/api/auth/regenerate-backup-codes": {
     post: {
       success: SuccessResponse & {
         backupCodes: string[];
         email: string;
+      };
+      error: ErrorResponse;
+    };
+  };
+
+  "/api/auth/profile": {
+    get: {
+      success: SuccessResponse & {
+        id: number;
+        name: string;
+        email: string;
+        is2faEnabled: boolean;
       };
       error: ErrorResponse;
     };

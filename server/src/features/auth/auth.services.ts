@@ -1,6 +1,6 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 
-import { and, eq, gt, ne } from "drizzle-orm";
+import { and, eq, gt, ne, sql } from "drizzle-orm";
 import jwt from "jsonwebtoken";
 import crypto from "node:crypto";
 import { authenticator } from "otplib";
@@ -247,9 +247,14 @@ export async function findUserById(userId: number) {
       name: usersTable.name,
       password: usersTable.password,
       email: emailsTable.email,
+      is2faEnabled: sql<boolean>`${authenticatorSecretsTable.secret} IS NOT NULL`,
     })
     .from(usersTable)
     .innerJoin(emailsTable, eq(emailsTable.userId, usersTable.id))
+    .leftJoin(
+      authenticatorSecretsTable,
+      eq(authenticatorSecretsTable.userId, usersTable.id),
+    )
     .where(eq(emailsTable.userId, userId))
     .limit(1);
 
@@ -444,6 +449,12 @@ export async function enableTwoFactorAuthentication({
 
     throw err;
   }
+}
+
+export async function disableTwoFactorAuthentication(userId: number) {
+  await db
+    .delete(authenticatorSecretsTable)
+    .where(eq(authenticatorSecretsTable.userId, userId));
 }
 
 function createBackupCodes(count: number) {

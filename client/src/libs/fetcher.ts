@@ -65,6 +65,7 @@ export class APIFetcher<TRoutes extends APISchema> {
       credentials,
       signal: opts.signal,
       body: requestBody,
+      cache: opts.cache,
     });
     const data =
       type === "json" ? await response.json() : await response.text();

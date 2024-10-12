@@ -3,7 +3,8 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 
 import { parseCookies } from "@/libs/parse-cookies";
-import { api } from "@/utils/server-api";
+
+import { getServerUser } from "./features/auth/use-cases/get-server-user";
 
 export default async function middleware(request: NextRequest) {
   try {
@@ -12,13 +13,7 @@ export default async function middleware(request: NextRequest) {
 
     if (accessToken || !refreshToken) return NextResponse.next();
 
-    const response = await api
-      .get("/api/auth/me", {
-        headers: {
-          cookie: cookies().toString(),
-        },
-      })
-      .json();
+    const response = await getServerUser();
     const responseCookie = response.headers.get("set-cookie");
     if (!responseCookie) throw new Error("No set-cookie header in response");
 

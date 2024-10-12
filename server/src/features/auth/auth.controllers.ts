@@ -20,6 +20,7 @@ import {
 import {
   authorizeUser,
   changePassword,
+  disableTwoFactorAuthentication,
   enableTwoFactorAuthentication,
   findUserById,
   logUserIn,
@@ -141,6 +142,20 @@ export async function getMeController(
   });
 }
 
+export async function profileController(
+  request: FastifyRequest,
+  reply: FastifyReply,
+) {
+  if (!request.user) throw new UnauthorizedError();
+
+  const currentUser = await findUserById(request.user.userId);
+
+  return sendSuccessResponse(reply, {
+    message: `Hello ${currentUser.name}`,
+    extra: currentUser,
+  });
+}
+
 export async function changePasswordController(
   request: FastifyRequest,
   reply: FastifyReply,
@@ -205,6 +220,19 @@ export async function enableTwoFactorAuthenticationController(
 
   return sendSuccessResponse(reply, {
     message: "2fa Enabled Successfully",
+  });
+}
+
+export async function disableTwoFactorAuthenticationController(
+  request: FastifyRequest,
+  reply: FastifyReply,
+) {
+  if (!request.user) throw new UnauthorizedError();
+
+  await disableTwoFactorAuthentication(request.user.userId);
+
+  return sendSuccessResponse(reply, {
+    message: "2fa Disabled Successfully",
   });
 }
 

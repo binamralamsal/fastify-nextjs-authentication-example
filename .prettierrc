@@ -4,7 +4,16 @@
   "trailingComma": "all",
 
   "plugins": ["@trivago/prettier-plugin-sort-imports"],
-  "importOrder": ["^react", "fastify", "^@?\\w", "^@/(.*)$", "^[./]"],
+  "importOrder": [
+    "server-only",
+    "^react",
+    "^next",
+    "^@/components",
+    "fastify",
+    "^@?\\w",
+    "^@/(.*)$",
+    "^[./]"
+  ],
   "importOrderSeparation": true,
   "importOrderSortSpecifiers": true,
   "importOrderSortByLength": true

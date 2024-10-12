@@ -2,11 +2,14 @@
 
 import { ChangeEvent, FormEvent, useState } from "react";
 
-import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+
+import { toast } from "sonner";
+
 import { site } from "@/configs/site";
 import { QRCodeCanvas } from "@/libs/qrcode";
 import { api } from "@/utils/client-api";
@@ -14,8 +17,10 @@ import { api } from "@/utils/client-api";
 export function TwoFactorAuthenticationForm(data: {
   authenticatorURI: string;
   secret: string;
+  is2faEnabled: boolean;
 }) {
   const [code, setCode] = useState("");
+  const router = useRouter();
 
   function handleChange(setter: React.Dispatch<React.SetStateAction<string>>) {
     return (e: ChangeEvent<HTMLInputElement>) => {
@@ -34,6 +39,18 @@ export function TwoFactorAuthenticationForm(data: {
 
     if (response.ok) {
       toast.success(response.data.message);
+      router.refresh();
+    } else {
+      toast.error(response.data.message);
+    }
+  }
+
+  async function handleTurnOff2fa() {
+    const response = await api.post("/api/auth/disable-2fa").json();
+
+    if (response.ok) {
+      toast.success(response.data.message);
+      router.refresh();
     } else {
       toast.error(response.data.message);
     }
@@ -74,43 +91,58 @@ export function TwoFactorAuthenticationForm(data: {
   }
 
   return (
-    <>
-      <QRCodeCanvas value={data.authenticatorURI} />
-      <form
-        className="w-full max-w-md rounded bg-white p-6 shadow-md"
-        onSubmit={handleTurnOn2fa}
-      >
-        <h2 className="mb-4 text-2xl font-bold">Turn on 2fa</h2>
-        <div className="mb-4 grid w-full max-w-sm items-center gap-1.5">
-          <Label htmlFor="code">Code</Label>
-          <Input
-            id="code"
-            onChange={handleChange(setCode)}
-            placeholder="Code"
-            required
-            type="text"
-            value={code}
-          />
-        </div>
+    <div className="w-full max-w-md rounded bg-white p-6 shadow-md">
+      <h2 className="mb-4 text-2xl font-bold">Turn on 2fa</h2>
 
-        <Button className="w-full" size="lg" type="submit">
-          Turn on 2fa
-        </Button>
-        <Button
-          className="w-full mt-2"
-          size="lg"
-          variant="outline"
-          type="button"
-          onClick={handleGenerateBackupCodes}
-        >
-          Re/Generate and Download Backup Codes
-        </Button>
-        <p className="text-sm mt-2 text-gray-500">
-          This is great if you lose your 2fa app somehow. Remember to save this
-          backup codes somewhere. You won&apos;t get this backup code again;
-          unless you regenerate it.
-        </p>
-      </form>
-    </>
+      {data.is2faEnabled ? (
+        <>
+          <Button
+            className="w-full mt-2"
+            size="lg"
+            variant="destructive"
+            onClick={handleTurnOff2fa}
+          >
+            Turn Off 2fa
+          </Button>
+          <Button
+            className="w-full mt-2"
+            size="lg"
+            variant="outline"
+            type="button"
+            onClick={handleGenerateBackupCodes}
+          >
+            Re/Generate and Download Backup Codes
+          </Button>
+          <p className="text-sm mt-2 text-gray-500">
+            This is great if you lose your 2fa app somehow. Remember to save
+            this backup codes somewhere. You won&apos;t get this backup code
+            again; unless you regenerate it.
+          </p>
+        </>
+      ) : (
+        <form onSubmit={handleTurnOn2fa}>
+          <QRCodeCanvas
+            value={data.authenticatorURI}
+            className="mx-auto mb-4"
+          />
+
+          <div className="mb-4 grid w-full max-w-sm items-center gap-1.5">
+            <Label htmlFor="code">Code</Label>
+            <Input
+              id="code"
+              onChange={handleChange(setCode)}
+              placeholder="Code"
+              required
+              type="text"
+              value={code}
+            />
+          </div>
+
+          <Button className="w-full" size="lg" type="submit">
+            Turn on 2fa
+          </Button>
+        </form>
+      )}
+    </div>
   );
 }
